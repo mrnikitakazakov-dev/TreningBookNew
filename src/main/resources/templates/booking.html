@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запись на тренировку</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Запись на тренировку</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Добавляем отображение ID тренировки для отладки (можно удалить потом) -->
+                        <div class="alert alert-info" th:if="${sessionId}">
+                            ID тренировки: <span th:text="${sessionId}"></span>
+                        </div>
+                        
+                        <form th:action="@{/book}" th:object="${bookingRequest}" method="post">
+                            <!-- Важно: поле name должно совпадать с именем поля в BookingRequest -->
+                            <input type="hidden" name="sessionId" th:value="${sessionId}" />
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Имя:</label>
+                                <input type="text" name="firstName" class="form-control" 
+                                       placeholder="Введите ваше имя" required />
+                                <div th:if="${#fields.hasErrors('firstName')}" 
+                                     class="text-danger" th:errors="*{firstName}"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Фамилия:</label>
+                                <input type="text" name="lastName" class="form-control" 
+                                       placeholder="Введите вашу фамилию" required />
+                                <div th:if="${#fields.hasErrors('lastName')}" 
+                                     class="text-danger" th:errors="*{lastName}"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Номер телефона:</label>
+                                <input type="tel" name="phone" class="form-control" 
+                                       placeholder="+7 (XXX) XXX-XX-XX" required />
+                                <div th:if="${#fields.hasErrors('phone')}" 
+                                     class="text-danger" th:errors="*{phone}"></div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    Записаться
+                                </button>
+                                <a href="/" class="btn btn-secondary">
+                                    Вернуться к расписанию
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

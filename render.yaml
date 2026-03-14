@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: training-app
+    env: docker
+    repo: https://github.com/ВАШ_ЛОГИН/ВАШ_РЕПОЗИТОРИЙ
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: training-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: training-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: training-db
+          property: password
+      - key: TRAINER_PASSWORD
+        value: ваш_секретный_пароль  # Замените на реальный пароль
+
+databases:
+  - name: training-db
+    databaseName: trainingdb
+    user: trainer_user
+    ipAllowList: []  # Разрешить доступ только изнутри Render

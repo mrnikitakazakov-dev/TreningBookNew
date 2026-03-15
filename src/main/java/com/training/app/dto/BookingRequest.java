@@ -14,7 +14,6 @@ public class BookingRequest {
     private String lastName;
     
     @NotBlank(message = "Номер телефона обязателен")
-    @Pattern(regexp = "^\\+?[0-9\\-\\s]{10,15}$", message = "Введите корректный номер телефона")
     private String phone;
     
     // Геттеры и сеттеры

@@ -11,6 +11,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -115,4 +116,60 @@ public class AdminController {
         }
         return "redirect:/admin";
     }
+
+    @PostMapping("/delete-slot")
+    public String deleteSlot(@RequestParam Long slotId, 
+                            RedirectAttributes redirectAttributes) {
+        try {
+            // Получаем слот по ID
+            TrainingSession session = trainingService.getSessionById(slotId);
+            
+            if (session == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Слот не найден");
+            } else if (session.isBooked()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Нельзя удалить забронированный слот");
+            } else {
+                trainingService.deleteSlot(slotId);
+                redirectAttributes.addFlashAttribute("successMessage", "Слот успешно удален");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Ошибка при удалении слота: " + e.getMessage());
+        }
+        return "redirect:/admin";
+    }
+
+    /**
+ * Создание одной тренировки на выбранный день
+ */
+    @PostMapping("/create-slot-for-day")
+    public String createSlotForDay(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
+            @RequestParam(required = false, defaultValue = "60") Integer durationMinutes,
+            RedirectAttributes redirectAttributes) {
+        
+        try {
+            LocalDateTime dateTime = LocalDateTime.of(date, startTime);
+            
+            // Проверяем, не существует ли уже такой слот
+            boolean created = trainingService.createSingleSlot(dateTime);
+            
+            if (created) {
+                redirectAttributes.addFlashAttribute("successMessage", 
+                    "Тренировка успешно создана на " + 
+                    date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) + " в " + 
+                    startTime.format(DateTimeFormatter.ofPattern("HH:mm")));
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", 
+                    "Тренировка на это время уже существует");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", 
+                "Ошибка при создании тренировки: " + e.getMessage());
+        }
+        
+        return "redirect:/admin";
+    }
+
+
 }

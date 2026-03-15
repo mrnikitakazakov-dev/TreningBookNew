@@ -21,31 +21,34 @@
                         </div>
                         
                         <form th:action="@{/book}" th:object="${bookingRequest}" method="post">
-                            <!-- Важно: поле name должно совпадать с именем поля в BookingRequest -->
-                            <input type="hidden" name="sessionId" th:value="${sessionId}" />
+                            <!-- Важно: это поле должно быть даже при ошибках валидации -->
+                            <input type="hidden" name="sessionId" th:value="${sessionId != null ? sessionId : bookingRequest.sessionId}" />
                             
                             <div class="mb-3">
                                 <label class="form-label">Имя:</label>
                                 <input type="text" name="firstName" class="form-control" 
-                                       placeholder="Введите ваше имя" required />
+                                    th:value="${bookingRequest.firstName}" 
+                                    placeholder="Введите ваше имя" required />
                                 <div th:if="${#fields.hasErrors('firstName')}" 
-                                     class="text-danger" th:errors="*{firstName}"></div>
+                                    class="text-danger" th:errors="*{firstName}"></div>
                             </div>
                             
                             <div class="mb-3">
                                 <label class="form-label">Фамилия:</label>
                                 <input type="text" name="lastName" class="form-control" 
-                                       placeholder="Введите вашу фамилию" required />
+                                    th:value="${bookingRequest.lastName}"
+                                    placeholder="Введите вашу фамилию" required />
                                 <div th:if="${#fields.hasErrors('lastName')}" 
-                                     class="text-danger" th:errors="*{lastName}"></div>
+                                    class="text-danger" th:errors="*{lastName}"></div>
                             </div>
                             
                             <div class="mb-3">
                                 <label class="form-label">Номер телефона:</label>
                                 <input type="tel" name="phone" class="form-control" 
-                                       placeholder="+7 (XXX) XXX-XX-XX" required />
+                                    th:value="${bookingRequest.phone}"
+                                    placeholder="+7 (XXX) XXX-XX-XX" required />
                                 <div th:if="${#fields.hasErrors('phone')}" 
-                                     class="text-danger" th:errors="*{phone}"></div>
+                                    class="text-danger" th:errors="*{phone}"></div>
                             </div>
                             
                             <div class="d-grid gap-2">

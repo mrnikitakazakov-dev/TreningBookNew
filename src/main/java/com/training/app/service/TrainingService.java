@@ -32,10 +32,10 @@ public class TrainingService {
     }
 
     public List<TrainingSession> getSessionsForDate(LocalDate date) {
-        return trainingSessionRepository.findByDateComponents(
-                date.getYear(),
-                date.getMonthValue(),
-                date.getDayOfMonth()
+        return trainingSessionRepository.findByDateComponentsOrderByDateTime(
+            date.getYear(),
+            date.getMonthValue(),
+            date.getDayOfMonth()
         );
     }
 
@@ -234,4 +234,33 @@ public class TrainingService {
         
         return deletedCount;
     }
+
+    /**
+ * Получить тренировку по ID
+ */
+    public TrainingSession getSessionById(Long id) {
+        return trainingSessionRepository.findById(id).orElse(null);
+    }
+
+    /**
+     * Удалить слот (только если он не забронирован)
+     */
+    @Transactional
+    public void deleteSlot(Long id) {
+        TrainingSession session = getSessionById(id);
+        if (session != null && !session.isBooked()) {
+            trainingSessionRepository.delete(session);
+        }
+    }
+
+    @Transactional
+    public boolean createSingleSlot(LocalDateTime dateTime) {
+        if (!trainingSessionRepository.existsByDateTime(dateTime)) {
+            TrainingSession session = new TrainingSession(dateTime);
+            trainingSessionRepository.save(session);
+            return true;
+        }
+        return false;
+    }
+
 }

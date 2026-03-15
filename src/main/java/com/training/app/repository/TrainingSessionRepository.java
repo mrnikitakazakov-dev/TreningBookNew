@@ -14,11 +14,12 @@ public interface TrainingSessionRepository extends JpaRepository<TrainingSession
     
     List<TrainingSession> findByDateTimeBetweenOrderByDateTime(LocalDateTime start, LocalDateTime end);
     
-    // Удаляем проблемный метод findByDate
-    
-    // Используем метод с компонентами даты
-    @Query("SELECT t FROM TrainingSession t WHERE YEAR(t.dateTime) = :year AND MONTH(t.dateTime) = :month AND DAY(t.dateTime) = :day")
-    List<TrainingSession> findByDateComponents(@Param("year") int year, @Param("month") int month, @Param("day") int day);
+   @Query("SELECT t FROM TrainingSession t WHERE YEAR(t.dateTime) = :year AND MONTH(t.dateTime) = :month AND DAY(t.dateTime) = :day ORDER BY t.dateTime ASC")
+    List<TrainingSession> findByDateComponentsOrderByDateTime(
+        @Param("year") int year, 
+        @Param("month") int month, 
+        @Param("day") int day
+    );
     
     boolean existsByDateTime(LocalDateTime dateTime);
     

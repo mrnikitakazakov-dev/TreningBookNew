@@ -80,17 +80,22 @@ public class ClientController {
     
     @PostMapping("/book")
     public String bookSession(@Valid @ModelAttribute BookingRequest bookingRequest,
-                              BindingResult result,
-                              RedirectAttributes redirectAttributes) {
+                            BindingResult result,
+                            @RequestParam(required = false) Long sessionId,
+                            Model model,
+                            RedirectAttributes redirectAttributes) {
+        
+        // Если есть ошибки валидации, возвращаем форму с сохранением sessionId
+        if (result.hasErrors()) {
+            model.addAttribute("sessionId", sessionId != null ? sessionId : bookingRequest.getSessionId());
+            model.addAttribute("bookingRequest", bookingRequest);
+            return "booking";
+        }
         
         if (bookingRequest.getSessionId() == null) {
             redirectAttributes.addFlashAttribute("errorMessage", 
                 "Ошибка: идентификатор тренировки не указан");
             return "redirect:/";
-        }
-        
-        if (result.hasErrors()) {
-            return "booking";
         }
         
         boolean booked = trainingService.bookSession(bookingRequest);

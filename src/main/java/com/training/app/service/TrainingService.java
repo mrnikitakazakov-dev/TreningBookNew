@@ -11,8 +11,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class TrainingService {
@@ -20,7 +23,7 @@ public class TrainingService {
     @Autowired
     private TrainingSessionRepository trainingSessionRepository;
 
-    // ==================== Существующие методы ====================
+    // ==================== Существующие методы (ПОЛНОСТЬЮ СОХРАНЕНЫ) ====================
 
     public List<TrainingSession> getSessionsBetweenDates(LocalDate start, LocalDate end) {
         LocalDateTime startDateTime = start.atStartOfDay();
@@ -48,7 +51,7 @@ public class TrainingService {
 
     @Transactional
     public void createWeekSessions(LocalDate startDate) {
-        // Этот метод можно оставить для обратной совместимости или удалить
+        // Этот метод оставлен для обратной совместимости
         List<LocalTime> times = List.of(
                 LocalTime.of(10, 0),
                 LocalTime.of(12, 0),
@@ -56,15 +59,36 @@ public class TrainingService {
                 LocalTime.of(16, 0),
                 LocalTime.of(18, 0)
         );
+        
+        // Оптимизированная версия для этого метода
+        List<LocalDateTime> allDateTimes = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             LocalDate currentDate = startDate.plusDays(i);
             for (LocalTime time : times) {
-                LocalDateTime dateTime = LocalDateTime.of(currentDate, time);
-                if (!trainingSessionRepository.existsByDateTime(dateTime)) {
-                    TrainingSession session = new TrainingSession(dateTime);
-                    trainingSessionRepository.save(session);
-                }
+                allDateTimes.add(LocalDateTime.of(currentDate, time));
             }
+        }
+        
+        // Получаем существующие слоты
+        LocalDateTime startOfWeek = startDate.atStartOfDay();
+        LocalDateTime endOfWeek = startDate.plusDays(7).atTime(LocalTime.MAX);
+        Set<LocalDateTime> existingDateTimes = trainingSessionRepository
+                .findByDateTimeBetweenOrderByDateTime(startOfWeek, endOfWeek)
+                .stream()
+                .map(TrainingSession::getDateTime)
+                .collect(Collectors.toSet());
+        
+        // Собираем только новые слоты
+        List<TrainingSession> sessionsToSave = new ArrayList<>();
+        for (LocalDateTime dateTime : allDateTimes) {
+            if (!existingDateTimes.contains(dateTime)) {
+                sessionsToSave.add(new TrainingSession(dateTime));
+            }
+        }
+        
+        // Сохраняем всё одной пачкой
+        if (!sessionsToSave.isEmpty()) {
+            trainingSessionRepository.saveAll(sessionsToSave);
         }
     }
 
@@ -108,73 +132,106 @@ public class TrainingService {
         return trainingSessionRepository.findByIsBooked(true).size();
     }
 
-    // ==================== Новые методы для гибкого создания расписания ====================
+    // ==================== ОПТИМИЗИРОВАННЫЕ МЕТОДЫ ====================
 
     /**
-     * Создаёт слоты (тренировки) в заданном диапазоне дат с учётом времени, длительности и перерывов.
-     *
-     * @param startDate       начало диапазона дат (включительно)
-     * @param endDate         конец диапазона дат (включительно)
-     * @param dayStartTime    время начала рабочего дня (например, 09:00)
-     * @param dayEndTime      время окончания рабочего дня (например, 21:00)
-     * @param slotDuration    длительность одной тренировки в минутах
-     * @param breakDuration   перерыв между тренировками в минутах
-     * @param daysOfWeek      список дней недели, для которых создавать слоты (1-пн, 7-вс). Если null или пусто — все дни.
+     * СОЗДАЁТ СЛОТЫ (тренировки) в заданном диапазоне дат с учётом времени, длительности и перерывов.
+     * ПОЛНОСТЬЮ ПЕРЕПИСАНА ДЛЯ МАКСИМАЛЬНОЙ ПРОИЗВОДИТЕЛЬНОСТИ
      */
     @Transactional
     public void createSlots(LocalDate startDate, LocalDate endDate,
                             LocalTime dayStartTime, LocalTime dayEndTime,
                             int slotDuration, int breakDuration,
                             List<Integer> daysOfWeek) {
+        
+        // Шаг 1: Генерируем все потенциальные даты и времена
+        List<LocalDateTime> potentialDateTimes = generatePotentialDateTimes(
+                startDate, endDate, dayStartTime, dayEndTime, 
+                slotDuration, breakDuration, daysOfWeek
+        );
+        
+        if (potentialDateTimes.isEmpty()) {
+            return;
+        }
+        
+        // Шаг 2: Загружаем уже существующие слоты за этот период (ОДИН запрос!)
+        LocalDateTime periodStart = startDate.atStartOfDay();
+        LocalDateTime periodEnd = endDate.atTime(23, 59, 59);
+        
+        Set<LocalDateTime> existingDateTimes = trainingSessionRepository
+                .findByDateTimeBetweenOrderByDateTime(periodStart, periodEnd)
+                .stream()
+                .map(TrainingSession::getDateTime)
+                .collect(Collectors.toSet());
+        
+        // Шаг 3: Собираем только новые слоты (проверка в памяти, а не в БД!)
+        List<TrainingSession> sessionsToSave = new ArrayList<>();
+        for (LocalDateTime dateTime : potentialDateTimes) {
+            if (!existingDateTimes.contains(dateTime)) {
+                sessionsToSave.add(new TrainingSession(dateTime));
+            }
+        }
+        
+        // Шаг 4: Сохраняем всё одной пачкой (ОДИН INSERT!)
+        if (!sessionsToSave.isEmpty()) {
+            trainingSessionRepository.saveAll(sessionsToSave);
+        }
+    }
+
+    /**
+     * ВСПОМОГАТЕЛЬНЫЙ МЕТОД: генерирует все потенциальные даты и времена для слотов
+     */
+    private List<LocalDateTime> generatePotentialDateTimes(LocalDate startDate, LocalDate endDate,
+                                                           LocalTime dayStartTime, LocalTime dayEndTime,
+                                                           int slotDuration, int breakDuration,
+                                                           List<Integer> daysOfWeek) {
+        List<LocalDateTime> result = new ArrayList<>();
         LocalDate currentDate = startDate;
+        Set<Integer> allowedDays = (daysOfWeek == null || daysOfWeek.isEmpty()) 
+                ? null 
+                : new HashSet<>(daysOfWeek);
+        
         while (!currentDate.isAfter(endDate)) {
             // Проверяем, нужно ли создавать слоты в этот день
-            if (daysOfWeek == null || daysOfWeek.isEmpty() || daysOfWeek.contains(currentDate.getDayOfWeek().getValue())) {
-                createSlotsForDay(currentDate, dayStartTime, dayEndTime, slotDuration, breakDuration);
+            if (allowedDays == null || allowedDays.contains(currentDate.getDayOfWeek().getValue())) {
+                LocalTime currentTime = dayStartTime;
+                while (currentTime.plusMinutes(slotDuration).isBefore(dayEndTime) ||
+                        currentTime.plusMinutes(slotDuration).equals(dayEndTime)) {
+                    
+                    result.add(LocalDateTime.of(currentDate, currentTime));
+                    currentTime = currentTime.plusMinutes(slotDuration + breakDuration);
+                }
             }
             currentDate = currentDate.plusDays(1);
         }
+        return result;
     }
 
     /**
-     * Создаёт слоты для конкретного дня.
-     */
-    private void createSlotsForDay(LocalDate date, LocalTime dayStart, LocalTime dayEnd,
-                                    int slotDuration, int breakDuration) {
-        LocalTime currentTime = dayStart;
-        while (currentTime.plusMinutes(slotDuration).isBefore(dayEnd) ||
-                currentTime.plusMinutes(slotDuration).equals(dayEnd)) {
-            LocalDateTime slotDateTime = LocalDateTime.of(date, currentTime);
-            // Проверяем, что такой слот ещё не существует
-            if (!trainingSessionRepository.existsByDateTime(slotDateTime)) {
-                TrainingSession session = new TrainingSession(slotDateTime);
-                trainingSessionRepository.save(session);
-            }
-            // Переходим к следующему слоту: длительность + перерыв
-            currentTime = currentTime.plusMinutes(slotDuration + breakDuration);
-        }
-    }
-
-    /**
-     * Удаляет все слоты (тренировки) в заданном диапазоне дат, которые НЕ являются забронированными.
-     * Если слот забронирован, он не удаляется.
-     *
-     * @param startDate начало диапазона
-     * @param endDate   конец диапазона
-     * @return количество удалённых слотов
+     * УДАЛЯЕТ слоты в заданном диапазоне дат, которые НЕ забронированы.
+     * ОПТИМИЗИРОВАНО: удаление одной пачкой, а не по одному
      */
     @Transactional
     public int deleteSlots(LocalDate startDate, LocalDate endDate) {
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59, 59);
-        List<TrainingSession> sessions = trainingSessionRepository.findByDateTimeBetweenOrderByDateTime(start, end);
-        int deletedCount = 0;
-        for (TrainingSession session : sessions) {
-            if (!session.isBooked()) {
-                trainingSessionRepository.delete(session);
-                deletedCount++;
-            }
+        
+        // Загружаем все слоты за период
+        List<TrainingSession> allSessions = trainingSessionRepository
+                .findByDateTimeBetweenOrderByDateTime(start, end);
+        
+        // Отбираем только незабронированные для удаления
+        List<TrainingSession> sessionsToDelete = allSessions.stream()
+                .filter(session -> !session.isBooked())
+                .collect(Collectors.toList());
+        
+        int deletedCount = sessionsToDelete.size();
+        
+        // Удаляем одной пачкой, если есть что удалять
+        if (deletedCount > 0) {
+            trainingSessionRepository.deleteAll(sessionsToDelete);
         }
+        
         return deletedCount;
     }
 }

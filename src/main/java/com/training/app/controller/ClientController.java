@@ -73,10 +73,18 @@ public class ClientController {
     
     @GetMapping("/book/{id}")
     public String showBookingForm(@PathVariable Long id, Model model) {
+        TrainingSession session = trainingService.getSessionById(id);
+        
+        // Проверяем, не является ли дата прошедшей
+        if (session != null && session.getDateTime().toLocalDate().isBefore(LocalDate.now())) {
+            return "redirect:/?error=pastDate";
+        }
+        
         model.addAttribute("sessionId", id);
         model.addAttribute("bookingRequest", new BookingRequest());
         return "booking";
     }
+
     
     @PostMapping("/book")
     public String bookSession(@Valid @ModelAttribute BookingRequest bookingRequest,
@@ -85,6 +93,17 @@ public class ClientController {
                             Model model,
                             RedirectAttributes redirectAttributes) {
         
+           TrainingSession session = trainingService.getSessionById(
+            bookingRequest.getSessionId() != null ? 
+            bookingRequest.getSessionId() : sessionId);
+        
+        if (session != null && session.getDateTime().toLocalDate().isBefore(LocalDate.now())) {
+            redirectAttributes.addFlashAttribute("errorMessage", 
+                "Нельзя записаться на прошедшую дату");
+            return "redirect:/";
+        }
+
+
         // Если есть ошибки валидации, возвращаем форму с сохранением sessionId
         if (result.hasErrors()) {
             model.addAttribute("sessionId", sessionId != null ? sessionId : bookingRequest.getSessionId());
@@ -110,4 +129,44 @@ public class ClientController {
         
         return "redirect:/";
     }
+
+    private Map<String, Object> getPageData(LocalDate date, YearMonth month) {
+        if (date == null) {
+            date = LocalDate.now();
+        }
+        if (month == null) {
+            month = YearMonth.from(date);
+        }
+        
+        LocalDate monthStart = month.atDay(1);
+        LocalDate monthEnd = month.atEndOfMonth();
+        List<TrainingSession> monthSessions = trainingService.getSessionsBetweenDates(monthStart, monthEnd);
+        List<TrainingSession> daySessions = trainingService.getSessionsForDate(date);
+
+        // Подготовка статистики для календаря
+        Map<String, int[]> calendarStats = new HashMap<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        for (TrainingSession ts : monthSessions) {
+            String key = ts.getDateTime().format(fmt);
+            int[] stats = calendarStats.getOrDefault(key, new int[]{0, 0});
+            stats[0]++; // всего тренировок в этот день
+            if (ts.isBooked()) {
+                stats[1]++; // занято
+            }
+            calendarStats.put(key, stats);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("selectedDate", date);
+        data.put("selectedMonth", month);
+        data.put("monthSessions", monthSessions);
+        data.put("daySessions", daySessions);
+        data.put("calendarStats", calendarStats);
+        data.put("prevMonth", month.minusMonths(1));
+        data.put("nextMonth", month.plusMonths(1));
+        data.put("today", LocalDate.now());
+        
+        return data;
+    }
+
 }

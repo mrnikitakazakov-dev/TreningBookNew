@@ -40,52 +40,76 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #f8f9fa;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
             padding: 5px;
             position: relative;
             text-decoration: none;
-            color: inherit;
+            color: white;
         }
         .calendar-day:hover {
-            background: #e9ecef;
             transform: scale(1.05);
         }
-        .calendar-day.selected {
+        
+        /* Синие ячейки - есть свободные тренировки */
+        .calendar-day.has-available {
             background: #007bff;
-            color: white;
-            font-weight: bold;
         }
-        .calendar-day.selected .session-count {
-            background: white;
-            color: #007bff;
+        .calendar-day.has-available:hover {
+            background: #0056b3;
         }
+        
+        /* Красные ячейки - все тренировки заняты */
+        .calendar-day.all-booked {
+            background: #dc3545;
+        }
+        .calendar-day.all-booked:hover {
+            background: #b02a37;
+        }
+        
+        /* Серые ячейки - нет тренировок (некликабельны) */
+        .calendar-day.no-trainings {
+            background: #6c757d;
+            cursor: not-allowed;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        /* Прошедшие даты (все типы) */
+        .calendar-day.past {
+            opacity: 0.5;
+            filter: grayscale(0.3);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        /* Сегодняшний день */
         .calendar-day.today {
-            border: 2px solid #28a745;
+            border: 3px solid #ffc107;
+            box-shadow: 0 0 5px rgba(255,193,7,0.5);
         }
+        
+        /* Выбранный день */
+        .calendar-day.selected {
+            border: 3px solid #28a745;
+            box-shadow: 0 0 5px rgba(40,167,69,0.5);
+        }
+        
         .day-number {
             font-size: 1.2em;
             font-weight: 500;
         }
+        
         .session-count {
             font-size: 0.7em;
             padding: 2px 6px;
             border-radius: 10px;
-            background: #007bff;
+            background: rgba(255,255,255,0.3);
             color: white;
             margin-top: 2px;
         }
-        .session-count.available {
-            background: #28a745;
-        }
-        .session-count.booked {
-            background: #dc3545;
-        }
-        .session-count.partial {
-            background: #ffc107;
-        }
+        
         .time-slots {
             background: white;
             border-radius: 10px;
@@ -114,9 +138,6 @@
             font-size: 1.2em;
             font-weight: bold;
         }
-        .delete-btn {
-            margin-left: 10px;
-        }
         .form-card {
             background: white;
             border-radius: 10px;
@@ -141,13 +162,45 @@
             padding: 15px;
             margin-bottom: 20px;
         }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .legend-color.available-day {
+            background: #007bff;
+        }
+        .legend-color.booked-day {
+            background: #dc3545;
+        }
+        .legend-color.no-trainings-day {
+            background: #6c757d;
+        }
+        .legend-color.past-day {
+            background: #e9ecef;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
     <div class="container mt-4">
         <h1 class="mb-4">Панель тренера</h1>
 
-        <!-- Навигация по месяцам (как в клиентской части) -->
+        <!-- Навигация по месяцам -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <a th:href="@{/admin(month=${prevMonth})}" class="btn btn-outline-primary">← Предыдущий месяц</a>
             <h3 th:text="${#temporals.format(selectedMonth.atDay(1), 'MMMM yyyy')}"></h3>
@@ -156,40 +209,103 @@
 
         <!-- Календарь -->
         <div class="calendar">
+            <div class="calendar-header">
+                <a th:href="@{/(month=${prevMonth})}" class="btn btn-outline-primary nav-button">
+                    ←
+                </a>
+                <span class="month-name" th:text="${#temporals.format(selectedMonth.atDay(1), 'MMMM yyyy')}"></span>
+                <a th:href="@{/(month=${nextMonth})}" class="btn btn-outline-primary nav-button">
+                    →
+                </a>
+            </div>
+
             <div class="calendar-weekdays">
                 <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
             </div>
+
+
+
+
+
+
             <div class="calendar-days">
-                <!-- Пустые ячейки -->
+                <!-- Пустые ячейки для первого дня месяца -->
                 <th:block th:each="i : ${#numbers.sequence(1, selectedMonth.atDay(1).dayOfWeek.value - 1)}">
                     <div class="calendar-day other-month"></div>
                 </th:block>
+                
+
+
+                <!-- Дни месяца -->
                 <!-- Дни месяца -->
                 <th:block th:each="day : ${#numbers.sequence(1, selectedMonth.lengthOfMonth())}">
                     <th:block th:with="currentDate=${selectedMonth.atDay(day)}">
-                        <a th:href="@{/admin(date=${currentDate}, month=${selectedMonth})}" 
-                           class="calendar-day" 
-                           th:classappend="${currentDate == selectedDate} ? 'selected' : (${currentDate == today} ? 'today' : '')">
-                            <span class="day-number" th:text="${day}"></span>
-                            <th:block th:with="key=${#temporals.format(currentDate, 'yyyy-MM-dd')}, stats=${calendarStats[key]}">
-                                <th:block th:if="${stats != null}">
-                                    <span class="session-count" 
-                                          th:classappend="${stats[1] == 0} ? 'available' : (${stats[1] == stats[0]} ? 'booked' : 'partial')"
-                                          th:text="${stats[1] + '/' + stats[0]}">
-                                    </span>
+                        <th:block th:with="key=${#temporals.format(currentDate, 'yyyy-MM-dd')}, stats=${calendarStats.get(key)}, hasTrainings=${stats != null}">
+                            <th:block th:with="isPastDate=${currentDate.isBefore(today)}">
+                                <th:block th:with="dayType = ${isPastDate ? 'past' : (!hasTrainings ? 'no-trainings' : (stats[1] == stats[0] ? 'all-booked' : 'has-available'))}">
+                                    <!-- ВАЖНО: ссылка ведет на /admin, а не на / -->
+                                    <a th:href="@{/admin(date=${currentDate}, month=${selectedMonth})}" 
+                                    class="calendar-day" 
+                                    th:classappend="|${dayType == 'has-available' ? 'has-available' : ''} ${dayType == 'all-booked' ? 'all-booked' : ''} ${dayType == 'no-trainings' ? 'no-trainings' : ''} ${dayType == 'past' ? 'past' : ''} ${currentDate == selectedDate ? 'selected' : ''} ${currentDate == today ? 'today' : ''}|"
+                                    th:tabindex="${dayType == 'past' || dayType == 'no-trainings' ? -1 : 0}"
+                                    th:aria-disabled="${dayType == 'past' || dayType == 'no-trainings'}">
+                                        
+                                        <span class="day-number" th:text="${day}"></span>
+                                        
+                                        <th:block th:if="${hasTrainings}">
+                                            <span class="session-count" th:text="${stats[1] + '/' + stats[0]}"></span>
+                                        </th:block>
+                                        <th:block th:if="${!hasTrainings && !isPastDate}">
+                                            <span class="session-count">0/0</span>
+                                        </th:block>
+                                    </a>
                                 </th:block>
                             </th:block>
-                        </a>
+                        </th:block>
                     </th:block>
                 </th:block>
             </div>
         </div>
 
+
+
+
+        <!-- Легенда календаря -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color available-day"></div>
+                <span>Есть свободные места (кликабельно)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color booked-day"></div>
+                <span>Все занято (кликабельно)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color no-trainings-day"></div>
+                <span>Нет тренировок (не кликабельно)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color past-day"></div>
+                <span>Прошедшие даты (не кликабельно)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #28a745; width: 30px; height: 20px; border-radius: 4px;"></div>
+                <span>Выбранный день</span>
+            </div>
+            <div class="legend-item">
+                <div style="width: 30px; height: 20px; border: 2px solid #ffc107; border-radius: 4px;"></div>
+                <span>Сегодня</span>
+            </div>
+        </div>
+
+       
+    
+
         <!-- Сообщения -->
         <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
         <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
 
-        <!-- ========== НОВЫЙ БЛОК: Быстрое добавление тренировки на выбранный день ========== -->
+        <!-- Быстрое добавление тренировки на выбранный день -->
         <div class="quick-add-form">
             <h5 class="mb-3">➕ Добавить тренировку на <span th:text="${#temporals.format(selectedDate, 'dd.MM.yyyy')}"></span></h5>
             <form th:action="@{/admin/create-slot-for-day}" method="post" class="row g-3">
@@ -208,7 +324,6 @@
             </form>
             <small class="text-muted">Если время уже занято, тренировка не будет создана.</small>
         </div>
-        <!-- ========== КОНЕЦ НОВОГО БЛОКА ========== -->
 
         <!-- Детальный вид на выбранный день -->
         <div class="time-slots">
@@ -224,11 +339,9 @@
                         </span>
                     </div>
                     <div>
-                        <!-- Форма отмены брони (для занятых слотов) -->
                         <form th:if="${ts.booked}" th:action="@{'/admin/cancel-booking/' + ${ts.id}}" method="post" style="display:inline;">
                             <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Отменить бронь?')">Отменить</button>
                         </form>
-                        <!-- Форма удаления слота (для свободных слотов) -->
                         <form th:unless="${ts.booked}" th:action="@{/admin/delete-slot}" method="post" style="display:inline;">
                             <input type="hidden" name="slotId" th:value="${ts.id}" />
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Удалить слот?')">Удалить</button>
@@ -275,27 +388,13 @@
                 <div class="mb-3">
                     <label class="form-label">Дни недели (если не выбраны, все дни):</label>
                     <div class="day-checkboxes">
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="1" /> Пн
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="2" /> Вт
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="3" /> Ср
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="4" /> Чт
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="5" /> Пт
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="6" /> Сб
-                        </div>
-                        <div class="day-checkbox">
-                            <input type="checkbox" name="daysOfWeek" value="7" /> Вс
-                        </div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="1" /> Пн</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="2" /> Вт</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="3" /> Ср</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="4" /> Чт</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="5" /> Пт</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="6" /> Сб</div>
+                        <div class="day-checkbox"><input type="checkbox" name="daysOfWeek" value="7" /> Вс</div>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success">Создать слоты</button>

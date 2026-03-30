@@ -6,7 +6,10 @@ import com.training.app.repository.TrainingSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 
+
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -262,5 +265,28 @@ public class TrainingService {
         }
         return false;
     }
+
+
+    @Transactional
+    @Scheduled(cron = "0 0 0 * * ?") // Каждый день в полночь
+    public void deletePastSessions() {
+        LocalDateTime now = LocalDateTime.now();
+        List<TrainingSession> pastSessions = trainingSessionRepository.findByDateTimeBefore(now);
+        
+        int deletedCount = pastSessions.size();
+        trainingSessionRepository.deleteAll(pastSessions);
+        
+        System.out.println("Удалено " + deletedCount + " прошедших тренировок");
+    }
+
+    /**
+     * Получить все тренировки до указанной даты
+     */
+    public List<TrainingSession> getSessionsBefore(LocalDateTime dateTime) {
+        return trainingSessionRepository.findByDateTimeBefore(dateTime);
+    }
+
+
+
 
 }

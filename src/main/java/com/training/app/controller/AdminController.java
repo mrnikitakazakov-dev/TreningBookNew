@@ -40,6 +40,26 @@ public class AdminController {
             month = YearMonth.from(date);
         }
 
+        // Получаем данные и статистику
+        Map<String, Object> pageData = getPageData(date, month, principal);
+        
+        model.addAttribute("username", pageData.get("username"));
+        model.addAttribute("selectedDate", pageData.get("selectedDate"));
+        model.addAttribute("selectedMonth", pageData.get("selectedMonth"));
+        model.addAttribute("monthSessions", pageData.get("monthSessions"));
+        model.addAttribute("daySessions", pageData.get("daySessions"));
+        model.addAttribute("calendarStats", pageData.get("calendarStats"));
+        model.addAttribute("prevMonth", pageData.get("prevMonth"));
+        model.addAttribute("nextMonth", pageData.get("nextMonth"));
+        model.addAttribute("today", LocalDate.now());
+
+        return "admin";
+    }
+
+    /**
+     * Вспомогательный метод для получения всех данных страницы
+     */
+    private Map<String, Object> getPageData(LocalDate date, YearMonth month, Principal principal) {
         LocalDate monthStart = month.atDay(1);
         LocalDate monthEnd = month.atEndOfMonth();
         List<TrainingSession> monthSessions = trainingService.getSessionsBetweenDates(monthStart, monthEnd);
@@ -58,17 +78,17 @@ public class AdminController {
             calendarStats.put(key, stats);
         }
 
-        model.addAttribute("username", principal.getName());
-        model.addAttribute("selectedDate", date);
-        model.addAttribute("selectedMonth", month);
-        model.addAttribute("monthSessions", monthSessions);
-        model.addAttribute("daySessions", daySessions);
-        model.addAttribute("calendarStats", calendarStats);
-        model.addAttribute("prevMonth", month.minusMonths(1));
-        model.addAttribute("nextMonth", month.plusMonths(1));
-        model.addAttribute("today", LocalDate.now());
-
-        return "admin";
+        Map<String, Object> data = new HashMap<>();
+        data.put("username", principal.getName());
+        data.put("selectedDate", date);
+        data.put("selectedMonth", month);
+        data.put("monthSessions", monthSessions);
+        data.put("daySessions", daySessions);
+        data.put("calendarStats", calendarStats);
+        data.put("prevMonth", month.minusMonths(1));
+        data.put("nextMonth", month.plusMonths(1));
+        
+        return data;
     }
 
     @PostMapping("/create-slots")
@@ -119,11 +139,9 @@ public class AdminController {
 
     @PostMapping("/delete-slot")
     public String deleteSlot(@RequestParam Long slotId, 
-                            RedirectAttributes redirectAttributes) {
+                             RedirectAttributes redirectAttributes) {
         try {
-            // Получаем слот по ID
             TrainingSession session = trainingService.getSessionById(slotId);
-            
             if (session == null) {
                 redirectAttributes.addFlashAttribute("errorMessage", "Слот не найден");
             } else if (session.isBooked()) {
@@ -138,9 +156,6 @@ public class AdminController {
         return "redirect:/admin";
     }
 
-    /**
- * Создание одной тренировки на выбранный день
- */
     @PostMapping("/create-slot-for-day")
     public String createSlotForDay(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -150,8 +165,6 @@ public class AdminController {
         
         try {
             LocalDateTime dateTime = LocalDateTime.of(date, startTime);
-            
-            // Проверяем, не существует ли уже такой слот
             boolean created = trainingService.createSingleSlot(dateTime);
             
             if (created) {
@@ -170,6 +183,4 @@ public class AdminController {
         
         return "redirect:/admin";
     }
-
-
 }

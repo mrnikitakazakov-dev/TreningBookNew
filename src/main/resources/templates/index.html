@@ -40,61 +40,74 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #f8f9fa;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
             padding: 5px;
             position: relative;
             text-decoration: none;
-            color: inherit;
+            color: white;
         }
         .calendar-day:hover {
-            background: #e9ecef;
             transform: scale(1.05);
         }
-        .calendar-day.selected {
+        
+        /* Синие ячейки - есть свободные тренировки */
+        .calendar-day.has-available {
             background: #007bff;
-            color: white;
-            font-weight: bold;
         }
-        .calendar-day.selected .day-number {
-            color: white;
+        .calendar-day.has-available:hover {
+            background: #0056b3;
         }
-        .calendar-day.selected .session-count {
-            background: white;
-            color: #007bff;
+        
+        /* Красные ячейки - все тренировки заняты */
+        .calendar-day.all-booked {
+            background: #dc3545;
         }
-        .calendar-day.other-month {
+        .calendar-day.all-booked:hover {
+            background: #b02a37;
+        }
+        
+        /* Серые ячейки - нет тренировок (некликабельны) */
+        .calendar-day.no-trainings {
+            background: #6c757d;
+            cursor: not-allowed;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        /* Прошедшие даты (все типы) */
+        .calendar-day.past {
             opacity: 0.5;
+            filter: grayscale(0.3);
+            cursor: not-allowed;
+            pointer-events: none;
         }
+        
+        /* Сегодняшний день */
         .calendar-day.today {
-            border: 2px solid #28a745;
+            border: 3px solid #ffc107;
+            box-shadow: 0 0 5px rgba(255,193,7,0.5);
         }
+        
+        /* Выбранный день */
+        .calendar-day.selected {
+            border: 3px solid #28a745;
+            box-shadow: 0 0 5px rgba(40,167,69,0.5);
+        }
+        
         .day-number {
             font-size: 1.2em;
             font-weight: 500;
         }
+        
         .session-count {
             font-size: 0.7em;
             padding: 2px 6px;
             border-radius: 10px;
-            background: #007bff;
+            background: rgba(255,255,255,0.3);
             color: white;
             margin-top: 2px;
-        }
-        .calendar-day.selected .session-count {
-            background: white;
-            color: #007bff;
-        }
-        .session-count.empty {
-            background: #6c757d;
-        }
-        .session-count.booked {
-            background: #dc3545;
-        }
-        .session-count.available {
-            background: #28a745;
         }
         
         .time-slots {
@@ -127,13 +140,6 @@
             font-size: 1.2em;
             font-weight: bold;
             color: #495057;
-        }
-        .time-slot .client-info {
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-        .time-slot .badge {
-            padding: 8px 12px;
         }
         .btn-book {
             padding: 8px 20px;
@@ -169,18 +175,22 @@
             gap: 8px;
         }
         .legend-color {
-            width: 20px;
+            width: 30px;
             height: 20px;
             border-radius: 4px;
         }
-        .legend-color.available {
-            background: #28a745;
+        .legend-color.available-day {
+            background: #007bff;
         }
-        .legend-color.booked {
+        .legend-color.booked-day {
             background: #dc3545;
         }
-        .legend-color.partial {
-            background: #ffc107;
+        .legend-color.no-trainings-day {
+            background: #6c757d;
+        }
+        .legend-color.past-day {
+            background: #e9ecef;
+            border: 1px solid #ccc;
         }
     </style>
 </head>
@@ -190,10 +200,6 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>Запись на тренировки</h1>
             <a href="/admin" class="btn btn-outline-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-badge" viewBox="0 0 16 16">
-                    <path d="M6 7.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"/>
-                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z"/>
-                </svg>
                 Панель тренера
             </a>
         </div>
@@ -209,80 +215,96 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
+        <div th:if="${param.error == 'pastDate'}" class="alert alert-warning alert-dismissible fade show" role="alert">
+            Нельзя записаться на прошедшую дату. Выберите будущую дату.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
         <!-- Календарь -->
         <div class="calendar">
             <div class="calendar-header">
                 <a th:href="@{/(month=${prevMonth})}" class="btn btn-outline-primary nav-button">
                     ←
                 </a>
-                <span class="month-name" 
-                      th:text="${#temporals.format(selectedMonth.atDay(1), 'MMMM yyyy')}">
-                </span>
+                <span class="month-name" th:text="${#temporals.format(selectedMonth.atDay(1), 'MMMM yyyy')}"></span>
                 <a th:href="@{/(month=${nextMonth})}" class="btn btn-outline-primary nav-button">
                     →
                 </a>
             </div>
 
             <div class="calendar-weekdays">
-                <div>Пн</div>
-                <div>Вт</div>
-                <div>Ср</div>
-                <div>Чт</div>
-                <div>Пт</div>
-                <div>Сб</div>
-                <div>Вс</div>
+                <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
             </div>
+
+
+
+
+
 
             <div class="calendar-days">
                 <!-- Пустые ячейки для первого дня месяца -->
                 <th:block th:each="i : ${#numbers.sequence(1, selectedMonth.atDay(1).dayOfWeek.value - 1)}">
                     <div class="calendar-day other-month"></div>
                 </th:block>
+                
+
 
                 <!-- Дни месяца -->
                 <th:block th:each="day : ${#numbers.sequence(1, selectedMonth.lengthOfMonth())}">
                     <th:block th:with="currentDate=${selectedMonth.atDay(day)}">
-                        <a th:href="@{/(date=${currentDate})}" 
-                           class="calendar-day" 
-                           th:classappend="${currentDate == selectedDate} ? 'selected' : (${currentDate == today} ? 'today' : '')">
-                            
-                            <span class="day-number" th:text="${day}"></span>
-                            
-                            <!-- Статистика из map -->
-                            <th:block th:with="key=${#temporals.format(currentDate, 'yyyy-MM-dd')}, stats=${calendarStats[key]}">
-                                <th:block th:if="${stats != null}">
-                                    <span class="session-count" 
-                                          th:classappend="${stats[1] == 0} ? 'available' : (${stats[1] == stats[0]} ? 'booked' : 'partial')"
-                                          th:text="${stats[1] + '/' + stats[0]}">
-                                    </span>
+                        <th:block th:with="key=${#temporals.format(currentDate, 'yyyy-MM-dd')}, stats=${calendarStats.get(key)}, hasTrainings=${stats != null}">
+                            <th:block th:with="isPastDate=${currentDate.isBefore(today)}">
+                                <th:block th:with="dayType = ${isPastDate ? 'past' : (!hasTrainings ? 'no-trainings' : (stats[1] == stats[0] ? 'all-booked' : 'has-available'))}">
+                                    <a th:href="@{/(date=${currentDate})}" 
+                                       class="calendar-day" 
+                                       th:classappend="|${dayType == 'has-available' ? 'has-available' : ''} ${dayType == 'all-booked' ? 'all-booked' : ''} ${dayType == 'no-trainings' ? 'no-trainings' : ''} ${dayType == 'past' ? 'past' : ''} ${currentDate == selectedDate ? 'selected' : ''} ${currentDate == today ? 'today' : ''}|"
+                                       th:tabindex="${dayType == 'past' || dayType == 'no-trainings' ? -1 : 0}"
+                                       th:aria-disabled="${dayType == 'past' || dayType == 'no-trainings'}">
+                                        
+                                        <span class="day-number" th:text="${day}"></span>
+                                        
+                                        <th:block th:if="${hasTrainings}">
+                                            <span class="session-count" th:text="${stats[1] + '/' + stats[0]}"></span>
+                                        </th:block>
+                                        <th:block th:if="${!hasTrainings && !isPastDate}">
+                                            <span class="session-count">0/0</span>
+                                        </th:block>
+                                    </a>
                                 </th:block>
                             </th:block>
-                        </a>
+                        </th:block>
                     </th:block>
                 </th:block>
             </div>
         </div>
 
+
+
+
         <!-- Легенда календаря -->
         <div class="legend">
             <div class="legend-item">
-                <div class="legend-color available"></div>
-                <span>Все свободно</span>
+                <div class="legend-color available-day"></div>
+                <span>Есть свободные места (кликабельно)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color partial"></div>
-                <span>Частично занято</span>
+                <div class="legend-color booked-day"></div>
+                <span>Все занято (кликабельно)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color booked"></div>
-                <span>Все занято</span>
+                <div class="legend-color no-trainings-day"></div>
+                <span>Нет тренировок (не кликабельно)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background: #007bff;"></div>
+                <div class="legend-color past-day"></div>
+                <span>Прошедшие даты (не кликабельно)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #28a745; width: 30px; height: 20px; border-radius: 4px;"></div>
                 <span>Выбранный день</span>
             </div>
             <div class="legend-item">
-                <div style="width: 20px; height: 20px; border: 2px solid #28a745; border-radius: 4px;"></div>
+                <div style="width: 30px; height: 20px; border: 2px solid #ffc107; border-radius: 4px;"></div>
                 <span>Сегодня</span>
             </div>
         </div>
@@ -304,25 +326,13 @@
                      th:classappend="${trainingSession.booked} ? 'booked' : 'available'">
                     
                     <div class="d-flex align-items-center">
-                        <span class="time me-3" 
-                              th:text="${#temporals.format(trainingSession.dateTime, 'HH:mm')}">
-                        </span>
-                        
-                        <div th:if="${trainingSession.booked}" class="client-info">
-                            
-                        </div>
+                        <span class="time me-3" th:text="${#temporals.format(trainingSession.dateTime, 'HH:mm')}"></span>
+                        <div th:if="${trainingSession.booked}" class="client-info"></div>
                     </div>
 
                     <div>
-                        <span th:if="${trainingSession.booked}" class="badge bg-secondary">
-                            Занято
-                        </span>
-                        
-                        <a th:unless="${trainingSession.booked}" 
-                           th:href="@{'/book/' + ${trainingSession.id}}" 
-                           class="btn btn-success btn-book">
-                            Записаться
-                        </a>
+                        <span th:if="${trainingSession.booked}" class="badge bg-secondary">Занято</span>
+                        <a th:unless="${trainingSession.booked}" th:href="@{'/book/' + ${trainingSession.id}}" class="btn btn-success btn-book">Записаться</a>
                     </div>
                 </div>
             </div>

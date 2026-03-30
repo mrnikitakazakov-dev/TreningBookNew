@@ -24,4 +24,5 @@ public interface TrainingSessionRepository extends JpaRepository<TrainingSession
     boolean existsByDateTime(LocalDateTime dateTime);
     
     List<TrainingSession> findByIsBooked(boolean isBooked);
+    List<TrainingSession> findByDateTimeBefore(LocalDateTime dateTime);
 }

@@ -210,11 +210,11 @@
         <!-- Календарь -->
         <div class="calendar">
             <div class="calendar-header">
-                <a th:href="@{/(month=${prevMonth})}" class="btn btn-outline-primary nav-button">
+                <a th:href="@{/admin(month=${prevMonth})}" class="btn btn-outline-primary nav-button">
                     ←
                 </a>
                 <span class="month-name" th:text="${#temporals.format(selectedMonth.atDay(1), 'MMMM yyyy')}"></span>
-                <a th:href="@{/(month=${nextMonth})}" class="btn btn-outline-primary nav-button">
+                <a th:href="@{/admin(month=${nextMonth})}" class="btn btn-outline-primary nav-button">
                     →
                 </a>
             </div>
